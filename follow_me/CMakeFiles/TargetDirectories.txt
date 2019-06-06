@@ -1,3 +1,0 @@
-/home/pi/dev/follow_me/CMakeFiles/rebuild_cache.dir
-/home/pi/dev/follow_me/CMakeFiles/edit_cache.dir
-/home/pi/dev/follow_me/CMakeFiles/follow_me.dir
