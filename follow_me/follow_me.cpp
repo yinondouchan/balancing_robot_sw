@@ -146,6 +146,11 @@ void move_robot_according_to_centroid_and_distance(Point &centroid, double dista
 	serial_comm.write_velocity(vel, ang_vel);
 }
 
+string gstreamer_pipeline()
+{
+    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=480, framerate=120/1, format=NV12 ! nvvidconv !appsink emit-signals=true sync=false max-buffers=2 drop=true";
+}
+
 int main(int argc, char *argv[]) {
     ArduinoSerialComm serial_comm;
     
@@ -161,18 +166,21 @@ int main(int argc, char *argv[]) {
     PIDController vel_pid(70, 0, 0.75);
     
     // start capturing video
-    if(!video.empty()) {
-        input_video.open(video);
-        wait_time = 0;
-    } else {
-        input_video.open(cam_id);
-        wait_time = 10;
+    input_video.open(gstreamer_pipeline(), CAP_GSTREAMER);
+    if (!input_video.isOpened())
+    {
+        cout << "failed to open camera" << endl;
+        return -1;
     }
+
+    cout << "camera opened successfully" << endl;
+
+    wait_time = 10;
 
     // lower the fps and resolution a bit
     //input_video.set(CAP_PROP_FPS, 20);
-    input_video.set(CAP_PROP_FRAME_WIDTH,320);
-	input_video.set(CAP_PROP_FRAME_HEIGHT,240);
+    //input_video.set(CAP_PROP_FRAME_WIDTH,320);
+    //input_video.set(CAP_PROP_FRAME_HEIGHT,240);
     
     MarkerDetector detector("", MARKER_LENGTH_CM, true);
     
@@ -198,6 +206,8 @@ int main(int argc, char *argv[]) {
     double dist_over_bbox_width;
     double distance;
     
+    int counter = 0;
+
     while(input_video.grab()) {
 		found_marker = false;
 		track_ok = false;
@@ -206,9 +216,13 @@ int main(int argc, char *argv[]) {
 		Vec3d tvec;
 		
 		// predict bbox
-		Mat bbox_prediction = bbox_kf->predict();
+		//Mat bbox_prediction = bbox_kf->predict();
 		
 		input_video.retrieve(frame);
+        counter++;
+        if (counter % 60 == 0)
+            cout << counter << endl;
+        //imshow("out", frame);
 		
 		if (frame_counter % 10 == 0)
 		{
@@ -245,10 +259,10 @@ int main(int argc, char *argv[]) {
 			tracker = TrackerMedianFlow::create(tracker_params);
 			tracker->init(frame, bbox);
 			
-			/*bbox_measurement(0) = bbox.x;
-			bbox_measurement(1) = bbox.y;
-			bbox_measurement(2) = bbox.width;
-			bbox_estimated = bbox_kf->correct(bbox_measurement);*/
+			//bbox_measurement(0) = bbox.x;
+			//bbox_measurement(1) = bbox.y;
+			//bbox_measurement(2) = bbox.width;
+			//bbox_estimated = bbox_kf->correct(bbox_measurement);
 		}
 		else
 		{

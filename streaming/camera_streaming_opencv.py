@@ -3,13 +3,13 @@
 # http://picamera.readthedocs.io/en/latest/recipes2.html#web-streaming
 
 import io
-import picamera
 import logging
 import threading
 import socketserver
 import sys
 import cv2
 import numpy as np
+
 from threading import Condition
 from http import server
 
@@ -34,35 +34,30 @@ PAGE="""\
 </body>
 </html>
 """
-
-class StreamingOutput(object):
-    def __init__(self):
-        self.frame = None
-        self.buffer = io.BytesIO()
-        self.condition = Condition()
-
-    def write(self, buf):
-        if buf.startswith(b'\xff\xd8'):
-            # New frame, copy the existing buffer's content and notify all
-            # clients it's available
-            self.buffer.truncate()
-            with self.condition:
-                self.frame = self.buffer.getvalue()
-                self.condition.notify_all()
-            self.buffer.seek(0)
-        return self.buffer.write(buf)
     
-    
+def gstreamer_pipeline(capture_width=1280, capture_height=720, display_width=1280, display_height=720, framerate=60, flip_method=0):
+        pipeline = ('nvarguscamerasrc ! video/x-raw(memory:NVMM), width=(int)%s, height=(int)%s, format=(string)NV12, framerate=(fraction)%s/1 ! nvvidconv flip-method=%s ! video/x-raw, width=(int)%s, height=(int)%s, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink'  % (capture_width,capture_height,framerate,flip_method,display_width,display_height))
+        return pipeline
+ 
 class OpenCVCameraStreaming(threading.Thread):
-    
+  
     def __init__(self):
         self.condition = Condition()
         self.frame = None
-        
-        self._cap = cv2.VideoCapture(0)
-        #self._cap.set(cv2.CAP_PROP_FPS, 24)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        gst_str = "nvarguscamerasrc ! 'video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=60/1' ! nvvidconv flip-method=0 ! 'video/x-raw, width=1280, height=720, format=BGRx' ! videoconvert ! 'video/x-raw, format=BGR' ! appsink"
+        gst_str2 = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=60/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1280, height=720, format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink emit-signals=true sync=false max-buffers=2 drop=true"
+        gst_test = "videotestsrc num-buffers=50 ! appsink emit-signals=true sync=false max-buffers=2 drop=true"
+
+        self._cap = cv2.VideoCapture(gst_str2, cv2.CAP_GSTREAMER)
+        if not self._cap.isOpened():
+            print('Failed to open camera')
+            sys.exit()
+
+        print('Camera opened successfully')
+        #self._cap.set(cv2.CAP_PROP_FPS, 60)
+        #self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        #self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         threading.Thread.__init__(self)
     
@@ -72,6 +67,7 @@ class OpenCVCameraStreaming(threading.Thread):
             with self.condition:
                 # get image
                 ret, img = self._cap.read()
+                print(ret)
                 # encode image to byte array
                 self.frame = bytearray(cv2.imencode('.jpeg', img)[1])
                             
@@ -142,16 +138,3 @@ server.serve_forever()
 #finally:
 #    output.close()
 
-"""
-with picamera.PiCamera(resolution=resolution, framerate=framerate) as camera:
-    output = StreamingOutput()
-    #Uncomment the next line to change your Pi's Camera rotation (in degrees)
-    #camera.rotation = 90
-    camera.start_recording(output, format='mjpeg')
-    try:
-        address = ('', 8000)
-        server = StreamingServer(address, StreamingHandler)
-        server.serve_forever()
-    finally:
-        camera.stop_recording()
-"""

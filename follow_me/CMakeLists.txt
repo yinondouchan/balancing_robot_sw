@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project( follow_me )
-find_package( OpenCV REQUIRED )
+find_package( OpenCV REQUIRED PATHS "/home/yinon/opencv/opencv-4.0.0/release")
 
 include_directories(./include)
 
