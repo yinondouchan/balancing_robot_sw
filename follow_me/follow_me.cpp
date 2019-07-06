@@ -139,7 +139,7 @@ void move_robot_according_to_centroid_and_distance(Point &centroid, double dista
 	// given the camera's FOV convert centroid to angle
 	int width_res = frame_width;
 	double angle_x = CAMERA_FOV_DEG * (centroid.x - width_res / 2) / width_res;
-	int vel = vel_pid.control(distance - 3.0);
+	int vel = vel_pid.control(distance - 2.0);
 	
 	// move robot accordingly
 	int ang_vel = ang_vel_pid.control(angle_x);
@@ -148,7 +148,7 @@ void move_robot_according_to_centroid_and_distance(Point &centroid, double dista
 
 string gstreamer_pipeline()
 {
-    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=480, framerate=120/1, format=NV12 ! nvvidconv !appsink emit-signals=true sync=false max-buffers=2 drop=true";
+    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=800, height=450, framerate=60/1, format=NV12 ! nvvidconv !appsink emit-signals=true sync=false max-buffers=2 drop=true";
 }
 
 int main(int argc, char *argv[]) {
@@ -162,8 +162,8 @@ int main(int argc, char *argv[]) {
     bool found_marker_first_time = false;
     
     // angular and linear velocity PID controllers
-    PIDController ang_vel_pid(10, 0, 1.2);
-    PIDController vel_pid(70, 0, 0.75);
+    PIDController ang_vel_pid(15, 0, 0.4);
+    PIDController vel_pid(140, 0, 0.75);
     
     // start capturing video
     input_video.open(gstreamer_pipeline(), CAP_GSTREAMER);
@@ -219,10 +219,6 @@ int main(int argc, char *argv[]) {
 		//Mat bbox_prediction = bbox_kf->predict();
 		
 		input_video.retrieve(frame);
-        counter++;
-        if (counter % 60 == 0)
-            cout << counter << endl;
-        //imshow("out", frame);
 		
 		if (frame_counter % 10 == 0)
 		{
