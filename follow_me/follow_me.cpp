@@ -158,7 +158,7 @@ string gstreamer_output_pipeline(int width, int height)
 {
     stringstream output_pipeline;
     output_pipeline << "appsrc ! video/x-raw,format=BGR ! videoconvert ! video/x-raw,format=I420,width=" << width
-                        << ",height=" << height << " ! shmsink socket-path=/tmp/follow_me";
+                        << ",height=" << height << " ! shmsink socket-path=/tmp/follow_me wait-for-connection=true";
     return output_pipeline.str();
 }
 
