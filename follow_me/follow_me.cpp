@@ -146,9 +146,20 @@ void move_robot_according_to_centroid_and_distance(Point &centroid, double dista
 	serial_comm.write_velocity(vel, ang_vel);
 }
 
-string gstreamer_pipeline()
+string gstreamer_input_pipeline(int width, int height)
 {
-    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=800, height=450, framerate=60/1, format=NV12 ! nvvidconv !appsink emit-signals=true sync=false max-buffers=2 drop=true";
+    stringstream input_pipeline;
+    input_pipeline << "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=" << width << ", height=" << height
+                      << ", framerate=60/1, format=NV12 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! appsink emit-signals=true sync=false max-buffers=2 drop=true";
+    return input_pipeline.str();
+}
+
+string gstreamer_output_pipeline(int width, int height)
+{
+    stringstream output_pipeline;
+    output_pipeline << "appsrc ! video/x-raw,format=BGR ! videoconvert ! video/x-raw,format=I420,width=" << width
+                        << ",height=" << height << " ! shmsink socket-path=/tmp/follow_me";
+    return output_pipeline.str();
 }
 
 int main(int argc, char *argv[]) {
@@ -160,27 +171,37 @@ int main(int argc, char *argv[]) {
     int frame_counter = 0;
     int wait_time;
     bool found_marker_first_time = false;
-    
+
     // angular and linear velocity PID controllers
     PIDController ang_vel_pid(15, 0, 0.4);
     PIDController vel_pid(140, 0, 0.75);
     
+    int cam_width = 800;
+    int cam_height = 450;
+
     // start capturing video
-    input_video.open(gstreamer_pipeline(), CAP_GSTREAMER);
+    input_video.open(gstreamer_input_pipeline(cam_width, cam_height), CAP_GSTREAMER);
     if (!input_video.isOpened())
     {
         cout << "failed to open camera" << endl;
         return -1;
     }
 
+    //cout << input_video.get(CAP_PROP_FRAME_WIDTH) << endl;
+    //cout << input_video.get(CAP_PROP_FRAME_HEIGHT) << endl;
+
+    cv::VideoWriter video_writer;
+    cout << gstreamer_input_pipeline(cam_width, cam_height) << endl;
+    cout << gstreamer_output_pipeline(cam_width, cam_height) << endl;
+    video_writer.open(gstreamer_output_pipeline(cam_width, cam_height), CAP_GSTREAMER, 0, (double)0, cv::Size(cam_width, cam_height), true);
+    if (!video_writer.isOpened()) {
+        cout << "Failed to open video writer" << endl;
+        return -1;
+    }
+
     cout << "camera opened successfully" << endl;
 
     wait_time = 10;
-
-    // lower the fps and resolution a bit
-    //input_video.set(CAP_PROP_FPS, 20);
-    //input_video.set(CAP_PROP_FRAME_WIDTH,320);
-    //input_video.set(CAP_PROP_FRAME_HEIGHT,240);
     
     MarkerDetector detector("", MARKER_LENGTH_CM, true);
     
@@ -289,7 +310,7 @@ int main(int argc, char *argv[]) {
 			//apply_lpf_on_bbox(bbox_lpf, bbox, 0.2);
 			
 			//circle(frame, centroid, 1, CV_RGB(255, 255, 255), 3);
-			//rectangle(frame, bbox, Scalar( 255, 0, 0 ), 2, 1 );
+			rectangle(frame, bbox, Scalar( 255, 0, 0 ), 2, 1 );
 			
 			//Rect2d bbox_filtered(bbox_estimated(0), bbox_estimated(1), bbox_estimated(2), bbox_estimated(2));
 			
@@ -301,14 +322,17 @@ int main(int argc, char *argv[]) {
 		}
 		
 		//imshow("marker", frame);
+        video_writer << frame;
 		
 		frame_counter++;
 		
 		char key = (char)waitKey(wait_time);
-        if(key == 27) break;
+        if(key == 'q') break;
         
 	}
 	
+    input_video.release();
+    video_writer.release();
 	delete(bbox_kf);
     return 0;
 }

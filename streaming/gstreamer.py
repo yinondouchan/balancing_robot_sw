@@ -18,6 +18,16 @@ def get_argus_resolution(width, height, framerate):
         return 1280, 720
 
 class GStreamerConfigs:
+    
+    class SharedMemoryToMJPeg:
+        def __init__(self, src_path=None, quality=50):
+            self.gstreamer_str = """ shmsrc socket-path=%s ! video/x-raw,format=I420,width=800,height=450,framerate=60/1 ! nvjpegenc ! appsink emit-signals=true sync=true """ % src_path
+    
+    class RawAppsinkToMJPeg:
+        def __init__(self, quality=50):
+            self.quality = quality
+            
+            self.gstreamer_str = """ appsrc ! nvvidconv ! nvjpegenc quality=%s ! appsink emit-signals=true sync=true """ % self.quality
 	
     class MJpeg:
         """ mjpeg directed to appsink """
@@ -33,6 +43,21 @@ class GStreamerConfigs:
             self.gstreamer_str = """nvarguscamerasrc ! video/x-raw(memory:NVMM), width=%s, height=%s, format=NV12,
 			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw(memory:NVMM), format=NV12,
 			 						width=%s, height=%s ! nvjpegenc quality=%s ! appsink emit-signals=true sync=true"""	% (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.width, self.height, self.quality)
+                                    
+    class MJpegTCP:
+        """ mjpeg directed to appsink """
+        def __init__(self, width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, quality=50, flip_method=0):
+            self.width = width
+            self.height = height
+            self.framerate = framerate
+            self.argus_width = argus_width
+            self.argus_height = argus_height
+            self.quality = quality
+            self.flip_method = flip_method
+			
+            self.gstreamer_str = """nvarguscamerasrc ! video/x-raw(memory:NVMM), width=%s, height=%s, format=NV12,
+			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw(memory:NVMM), format=NV12,
+			 						width=%s, height=%s ! nvjpegenc quality=%s ! tcpserversink host=0.0.0.0 port=5000""" % (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.width, self.height, self.quality)
 				
     class Direct:
         """ no encoding, directly to appsink """
@@ -50,23 +75,50 @@ class GStreamerConfigs:
                                     
     vp8_enc_gst_str = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=3280, height=1848, format=NV12, framerate=28/1 ! omxvp8enc bitrate=12000000 ! matroskamux ! appsink emit-signals=true sync=false max-buffers=2 drop=true"
 
+
 class GStreamerCameraSource:
 	
-    def __init__(self, config=None):
+    def __init__(self, config=None, frame_cb=None):
         self._config = config
     
         if self._config is None:
-            self._config = self.Configs.default
+            self._config = GStreamerConfigs.MJpeg()
+            
+        self._frame_cb = frame_cb
+            
+        self.init_stream()
 				
-    def run_stream(self, frame_callback):
+    def init_stream(self):
         Gst.init()
         pipeline = Gst.parse_launch(self._config.gstreamer_str)
         pipeline.set_state(Gst.State.PLAYING)
         self.video_sink = pipeline.get_by_name('appsink0')
-        self.video_sink.connect('new-sample', frame_callback)
+        self.video_sink.connect('new-sample', self.video_callback)
         
-    def to_opencv_videocapture(self):
-        if cv2 is None:
-            import cv2
-            
-        return cv2.VideoCapture(self._config.gstreamer_str, cv2.CAP_GSTREAMER)
+    def video_callback(self, sink):
+        """ called when a new frame arrives """ 
+        # extract frame buffer from gstreamer          
+        sample = sink.emit('pull-sample')
+        buf = sample.get_buffer()
+        frame = buf.extract_dup(0, buf.get_size())
+        if self._frame_cb:
+            self._frame_cb(frame)
+
+        return Gst.FlowReturn.OK
+ 
+    def close(self):
+        self._cap.release()
+        
+    #def to_opencv_videocapture(self):
+    #    if cv2 is None:
+    #        import cv2
+    #        
+    #    return cv2.VideoCapture(self._config.gstreamer_str, cv2.CAP_GSTREAMER)
+        
+    
+class GStreamerCameraSink:
+    def __init__(self):
+        pass
+        
+    def send_frame(self, frame):
+        """ send a frame to the appsrc """

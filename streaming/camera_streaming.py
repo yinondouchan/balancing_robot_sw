@@ -17,36 +17,24 @@ from threading import Condition
 from http import server
 from gi.repository import Gst, GObject
 from gstreamer import get_argus_resolution, GStreamerCameraSource, GStreamerConfigs
- 
-class CameraStreamingSource:
-  
-    def __init__(self, width, height, framerate, quality=85, argus_width=None, argus_height=None):
-        self.condition = Condition()
+
+class FrameSource:
+    """ Feed this class with frames from a specific source """
+    def __init__(self):
         self.frame = None
-        if argus_width is None or argus_height is None:
-            argus_width, argus_height = get_argus_resolution(int(width), int(height), int(framerate))
-        self._camera_source = GStreamerCameraSource(GStreamerConfigs.MJpeg(width, height, framerate, argus_width, argus_height))
+        self.frame_mutex = Condition()
 
-    def video_callback(self, sink):
-        with self.condition:             
-            # notify new image to all consumers
-            sample = sink.emit('pull-sample')
-            buf = sample.get_buffer()
-            self.frame = buf.extract_dup(0, buf.get_size())
-            self.condition.notify_all()
-
-        return Gst.FlowReturn.OK
-        
-    def run(self):
-        self._camera_source.run_stream(self.video_callback)
-        print('Camera opened successfully')
- 
-    def close(self):
-        self._cap.release()
+    def on_frame(self, frame):
+        with self.frame_mutex:
+            self.frame = frame
+            self.frame_mutex.notify_all()
+    
 
 class StreamingHandler(server.BaseHTTPRequestHandler):
+    """ handles http requests for different endpoints """
     
     _page = None
+    _frame_source = None
 
     @classmethod
     def init_page(cls, width=1280, height=720):
@@ -63,6 +51,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
         </body>
         </html>
         """ % (width, height)
+        
+    @classmethod
+    def set_frame_source(cls, frame_source):
+        cls._frame_source = frame_source
 
     def do_GET(self):
         if self.path == '/':
@@ -85,14 +77,14 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 while True:
-                    with output.condition:
-                        output.condition.wait()
-                        frame = output.frame
+                    frame_source = self._frame_source
+                    with frame_source.frame_mutex:
+                        frame_source.frame_mutex.wait()
                     self.wfile.write(b'--FRAME\r\n')
                     self.send_header('Content-Type', 'video/webm')
-                    self.send_header('Content-Length', len(frame))
+                    self.send_header('Content-Length', len(frame_source.frame))
                     self.end_headers()
-                    self.wfile.write(frame)
+                    self.wfile.write(frame_source.frame)
                     self.wfile.write(b'\r\n')
             except Exception as e:
                 logging.warning(
@@ -103,6 +95,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.end_headers()
 
 class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
+    """ the streaming server """
     allow_reuse_address = True
     daemon_threads = True
 
@@ -138,12 +131,36 @@ if __name__ == '__main__':
         aspect_ratio = float(width)/float(height)
         window_height=720
         window_width = aspect_ratio * window_height
+        
+    try:
+        output_src = args_dict['src']
+    except KeyError:
+        output_src = 'camera'
+        
+    
+    if argus_width is None or argus_height is None:
+        argus_width, argus_height = get_argus_resolution(int(width), int(height), int(framerate))
 
     StreamingHandler.init_page(window_width, window_height)
 
     # streaming output
-    output = CameraStreamingSource(width, height, framerate, quality=quality, argus_width=argus_width, argus_height=argus_height)
-    output.run()
+    frame_source = FrameSource()
+    StreamingHandler.set_frame_source(frame_source)
+    
+    if output_src == 'camera':
+        output = GStreamerCameraSource(GStreamerConfigs.MJpeg(width, height, framerate, quality=quality, argus_width=argus_width, argus_height=argus_height),
+                                        frame_source.on_frame)
+    elif output_src == 'shared_memory':
+        try:
+            shared_memory_path = args_dict['src_path']
+        except KeyError:
+            raise Exception('src_path must be determined if using shared memory')
+            
+        output = GStreamerCameraSource(GStreamerConfigs.SharedMemoryToMJPeg(src_path=shared_memory_path, quality=quality),
+                                        frame_source.on_frame)
+    else:
+        raise Exception('Unknown source: %s' % output_src)
+        
 
     address = ('', 8000)
     logging.info('Starting server on port %s' % address[1])
