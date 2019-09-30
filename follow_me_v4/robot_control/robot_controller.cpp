@@ -3,7 +3,7 @@
 RobotController::RobotController()
 {
 	// initialize PID controllers
-	turn_rate_pid.set_coefficients(-0.65, 0, -0.02);
+	turn_rate_pid.set_coefficients(0.65, 0, 0.02);
 	//velocity_pid.set_coefficients(15, 0, 0.4);
 	velocity_pid.set_coefficients(0, 0, 0); // TODO deal with linear velocity
 }

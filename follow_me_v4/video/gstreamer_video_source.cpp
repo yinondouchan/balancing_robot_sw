@@ -1,10 +1,14 @@
 #include "gstreamer_video_source.h"
 
+#include <sstream>
+
 void GstreamerVideoSource::init(int res_width, int res_height, int framerate)
 {
-	video.open("nvarguscamerasrc ! video/x-raw(memory:NVMM), width=800, height=450,"
-			" framerate=60/1, format=NV12 ! nvvidconv ! video/x-raw, format=(string)BGRx "
-			"! videoconvert ! appsink emit-signals=true sync=false max-buffers=2 drop=true", CAP_GSTREAMER);
+	std::stringstream input_stream;
+	input_stream << "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=" << res_width << ", height=" << res_height << ","
+			" framerate=" << framerate << "/1, format=NV12 ! nvvidconv ! video/x-raw, format=(string)BGRx "
+			"! videoconvert ! appsink emit-signals=true sync=false max-buffers=2 drop=true";
+	video.open(input_stream.str(), CAP_GSTREAMER);
 }
 
 void GstreamerVideoSource::read(Mat &frame)

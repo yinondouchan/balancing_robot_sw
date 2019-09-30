@@ -17,6 +17,14 @@
 
 using namespace nvinfer1;
 
+// input dimensions
+#define INPUT_CHANNELS 3
+#define INPUT_WIDTH 300
+#define INPUT_HEIGHT 300
+
+// detection size in output (output may have multiple detections)
+#define NUM_OF_FIELDS_PER_DETECTION 7
+
 class SSDDetector : public DetectorBase
 {
 public:
@@ -24,6 +32,7 @@ public:
 
     // initialization
     void init() override;
+    void init(double confidence_threshold);
 
     // detect objects and return their bounding boxes and class names
     void detect(Mat &image, std::vector<Rect2d> &out_bboxes, std::vector<std::string> &class_names) override;
@@ -47,6 +56,9 @@ private:
     // load TensorRT engine
     ICudaEngine* load_engine();
 
+    // confidence threshold for a detection to be valid
+    double confidence_threshold;
+
     // allocate host and device buffers
     void allocate_buffers(IExecutionContext *context);
 
@@ -54,7 +66,10 @@ private:
     std::vector<std::pair<int64_t, nvinfer1::DataType>> calculateBindingBufferSizes(const ICudaEngine& engine, int nbBindings, int batchSize);
 
     // do the inference
-    void do_inference(IExecutionContext& context, float* inputData, float* detectionOut, int* keepCount, int batchSize);
+    void do_inference(IExecutionContext& context, Mat* inputChannels, float* detectionOut, int* keepCount, int batchSize);
+
+    // decode outputs (first two arguments) to bounding boxes and classes (last two arguments)
+    void decode_outputs(float* detectionOut, int* keepCount, std::vector<Rect2d> &out_bboxes, std::vector<std::string> &class_names);
 
     // destroy the detector
     void destroy();
