@@ -64,7 +64,7 @@ void run_follow_me()
 			location_estimation.estimate_location(roi, frame, perp_distance, centroid);
 
 			// control robot given target location
-			robot_controller.control(perp_distance, centroid.x, centroid.y);
+			robot_controller.control_by_area_and_centroid(roi.width * roi.height, centroid.x, centroid.y);
 		}
 		else
 		{
@@ -79,11 +79,11 @@ void run_follow_me()
 
 int main()
 {
-	GstreamerVideoSource video_input;
+	/*GstreamerVideoSource video_input;
 	GstreamerVideoOutput video_output;
 
 	SSDDetector detector;
-	detector.init();
+	detector.init(0.2);
 
 	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
 	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
@@ -98,10 +98,13 @@ int main()
 		std::vector<Rect2d> out_bboxes;
 		std::vector<std::string> out_labels;
 		detector.detect(frame, out_bboxes, out_labels);
+		detector.draw_bboxes_on_image(frame, out_bboxes, out_labels);
 
 		// output frame
 		video_output.output_frame(frame);
-	}
+	}*/
+
+	run_follow_me();
 
     return 0;
 }

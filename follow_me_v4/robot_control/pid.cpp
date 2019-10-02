@@ -1,5 +1,7 @@
 #include "pid.h"
 
+#include <iostream>
+
 PIDController::PIDController()
 {
 	_p_coeff = 0;
@@ -68,5 +70,6 @@ double PIDController::control(double error)
 	_d = _d_coeff * (_error_lpf_d - _prev_error_d) / dt;
 
 	_prev_error_d = _error_lpf_d;
+
 	return _p + _i + _d;
 }

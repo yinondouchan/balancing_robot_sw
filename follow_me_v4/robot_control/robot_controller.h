@@ -22,6 +22,10 @@ public:
 	// and the object's centroid in frame (pixels, relative to frame center)
 	void control(double perp_distance, int centroid_x, int centroid_y);
 
+	// control the robot as a function of detection area (pixels^2)
+	// and the object's centroid in frame (pixels, relative to frame center)
+	void control_by_area_and_centroid(double bbox_area, int centroid_x, int centroid_y);
+
 	// control velocity and turn rate directly
 	void control(int vel, int turn_rate);
 private:

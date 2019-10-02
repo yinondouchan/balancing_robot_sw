@@ -1,6 +1,8 @@
 #include "ssd_detector.h"
 #include "ssd/sampleUffSSD.h"
 
+#include <opencv2/tracking.hpp>
+
 std::vector<std::pair<int64_t, nvinfer1::DataType>> SSDDetector::calculateBindingBufferSizes(const ICudaEngine& engine, int nbBindings, int batchSize)
 {
     std::vector<std::pair<int64_t, nvinfer1::DataType>> sizes;
@@ -98,6 +100,43 @@ void SSDDetector::init(double confidence_threshold)
     allocate_buffers(context);
 }
 
+// resize image and letterbox it (pad it with constant value) to fit input dimensions
+void SSDDetector::resize_and_letterbox_image(Mat &image, Mat &output)
+{
+    // scale the image to fit at least one of the input dimensions
+    // start by finding the largest dimension of the image
+    int largestDim = std::max(image.rows, image.cols);
+
+    // calculate the dimensions to resize to
+    int resizeWidth = INPUT_WIDTH * image.cols / largestDim;
+    int resizeHeight = INPUT_HEIGHT * image.rows / largestDim;
+
+    // make sure resize dimensions are correct
+    assert((resizeWidth == INPUT_WIDTH) || (resizeHeight == INPUT_HEIGHT));
+
+    // resize the image
+    Mat resizedImage;
+    resize(image, resizedImage, Size(resizeWidth, resizeHeight), 0, 0, INTER_CUBIC);
+
+    // calculate padding dimensions
+    int padWidth = (INPUT_WIDTH - resizeWidth) / 2;
+    int padWidthResidue = (INPUT_WIDTH - resizeWidth) % 2;
+    int padHeight = (INPUT_HEIGHT - resizeHeight) / 2;
+    int padHeightResidue = (INPUT_HEIGHT - resizeHeight) % 2;
+
+    // pad the image with gray pixels to fit completely to the input size dimensions
+    cv::copyMakeBorder(resizedImage, output, padHeight, padHeight + padHeightResidue, padWidth,
+                       padWidth + padWidthResidue, cv::BORDER_CONSTANT, cv::Scalar(128, 128, 128));
+
+    // padded image dimensions must be identical to tracker input dimensions
+    assert(output.rows == INPUT_HEIGHT);
+    assert(output.cols == INPUT_WIDTH);
+    assert(output.channels() == INPUT_CHANNELS);
+
+    // convert datatype to float
+    output.convertTo(output, CV_32FC3);
+}
+
 // detect objects and return their bounding boxes and class names
 void SSDDetector::detect(Mat &image, std::vector<Rect2d> &out_bboxes, std::vector<std::string> &class_names)
 {
@@ -105,19 +144,19 @@ void SSDDetector::detect(Mat &image, std::vector<Rect2d> &out_bboxes, std::vecto
     vector<int> keepCount(1);
 
     // letterbox image to the input size
+    Mat letterboxed_image(INPUT_WIDTH, INPUT_HEIGHT, CV_32FC3);
+    resize_and_letterbox_image(image, letterboxed_image);
 
     // subtract each channel with mean pixel values
     Mat image_zero_mean;
-    subtract(image, Scalar(123.68, 116.779, 103.939), image_zero_mean);
+    subtract(letterboxed_image, Scalar(103.939, 116.779, 123.68), image_zero_mean);
 
     // split image to channels
     Mat image_split[3];
     split(image_zero_mean, image_split);
 
-    std::cout << image.rows << " " << image.cols << std::endl;
-
 	do_inference(*context, image_split, &detectionOut[0], &keepCount[0], 1);
-	decode_outputs(&detectionOut[0], &keepCount[0], out_bboxes, class_names);
+	decode_outputs(image, &detectionOut[0], &keepCount[0], out_bboxes, class_names);
 }
 
 // do the inference
@@ -134,9 +173,9 @@ void SSDDetector::do_inference(IExecutionContext& context, Mat* inputChannels, f
 
     // DMA the input to the GPU, execute the batch asynchronously, and DMA it back:
     int channelSize = batchSize * INPUT_H * INPUT_W * sizeof(float);
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], inputChannels[0].data, channelSize, cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], inputChannels[2].data, channelSize, cudaMemcpyHostToDevice, stream));
     CHECK(cudaMemcpyAsync((int8_t*)buffers[inputIndex] + channelSize, inputChannels[1].data, channelSize, cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync((int8_t*)buffers[inputIndex] + 2 * channelSize, inputChannels[2].data, channelSize, cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync((int8_t*)buffers[inputIndex] + 2 * channelSize, inputChannels[0].data, channelSize, cudaMemcpyHostToDevice, stream));
 
     context.execute(batchSize, &buffers[0]);
 
@@ -149,7 +188,7 @@ void SSDDetector::do_inference(IExecutionContext& context, Mat* inputChannels, f
 }
 
 // decode outputs (first two arguments) to bounding boxes and classes (last two arguments)
-void SSDDetector::decode_outputs(float* detectionOut, int* keepCount, std::vector<Rect2d> &out_bboxes, std::vector<std::string> &class_names)
+void SSDDetector::decode_outputs(Mat &image, float* detectionOut, int* keepCount, std::vector<Rect2d> &out_bboxes, std::vector<std::string> &class_names)
 {
 	// iterate over results. Each result is a 7-tuple of (image ID, image class, confidence, xmin, ymin, xmax, ymax)
 	int keep_count = keepCount[0];
@@ -159,10 +198,10 @@ void SSDDetector::decode_outputs(float* detectionOut, int* keepCount, std::vecto
 		int id = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 0];
 		int image_class = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 1];
 		double confidence = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 2];
-		double xmin = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 3] * INPUT_WIDTH;
-		double ymin = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 4] * INPUT_HEIGHT;
-		double xmax = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 5] * INPUT_WIDTH;
-		double ymax = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 6] * INPUT_HEIGHT;
+		double xmin = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 3] * image.cols;
+		double ymin = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 4] * image.rows;
+		double xmax = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 5] * image.cols;
+		double ymax = detectionOut[i * NUM_OF_FIELDS_PER_DETECTION + 6] * image.rows;
 
 		if (confidence > max_confidence) max_confidence = confidence;
 
@@ -170,17 +209,9 @@ void SSDDetector::decode_outputs(float* detectionOut, int* keepCount, std::vecto
 		if (confidence >= confidence_threshold)
 		{
 			out_bboxes.push_back(Rect2d(xmin, ymin, xmax - xmin, ymax - ymin));
-			class_names.push_back("aaa");
+			class_names.push_back(std::to_string(image_class));
 		}
 	}
-
-	std::cout << max_confidence << std::endl;
-//    std::cout << "detection out: ";
-//    for (int i = 0; i < (NUM_OF_FIELDS_PER_DETECTION * keepCount[0]); i++) {
-//    	std::cout << detectionOut[i] << " ";
-//    }
-//
-//    std::cout << std::endl;
 }
 
 void SSDDetector::destroy()

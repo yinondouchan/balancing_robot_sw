@@ -34,10 +34,15 @@ private:
 	// given detections, find the target index in them. Return -1 if target was not found
 	int find_target_index_in_detections(std::vector<Rect2d> &bboxes, std::vector<std::string> &labels);
 
+	// detector and tracker
 	DetectorBase &_detector;
 	TrackerBase &_tracker;
 
+	// true if tracker was initialized at least once
 	bool tracker_init_once;
+
+	// previous detected/tracked centroid
+	Point2d prev_centroid;
 };
 
 
