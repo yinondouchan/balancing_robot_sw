@@ -7,6 +7,7 @@
 #include "processing/detector_tracker_fusion.h"
 #include "processing/location_estimation.h"
 #include "robot_control/robot_controller.h"
+#include "utils/camera_calibration.h"
 
 #include <unistd.h>
 #include <signal.h>
@@ -79,32 +80,6 @@ void run_follow_me()
 
 int main()
 {
-	/*GstreamerVideoSource video_input;
-	GstreamerVideoOutput video_output;
-
-	SSDDetector detector;
-	detector.init(0.2);
-
-	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
-	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
-
-	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
-
-	while (!sigint_received)
-	{
-		Mat frame;
-		video_input.read(frame);
-
-		std::vector<Rect2d> out_bboxes;
-		std::vector<std::string> out_labels;
-		detector.detect(frame, out_bboxes, out_labels);
-		detector.draw_bboxes_on_image(frame, out_bboxes, out_labels);
-
-		// output frame
-		video_output.output_frame(frame);
-	}*/
-
 	run_follow_me();
-
     return 0;
 }

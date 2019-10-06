@@ -18,6 +18,7 @@ class GstreamerVideoSource : public VideoSourceBase
 {
 public:
 	void init(int res_width, int res_height, int framerate) override;
+	void init(int res_width, int res_height, int argus_width, int argus_height, int framerate);
 	void read(Mat &frame) override;
 private:
 	VideoCapture video;
