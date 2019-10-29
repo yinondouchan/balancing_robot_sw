@@ -1,0 +1,1 @@
+gst-launch-1.0 nvarguscamerasrc ! 'video/x-raw(memory:NVMM), format=NV12, width=3280, height=1848, framerate=1/1' ! nvvidconv ! 'video/x-raw(memory:NVMM), format=NV12, width=1280, height=720'! tee name=t ! queue ! videoconvert ! autovideosink t. ! queue ! videoconvert ! nvjpegenc quality=95 ! multifilesink location=image_%06d.jpg
