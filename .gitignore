@@ -1,0 +1,6 @@
+*.engine
+.cproject
+.project
+.settings
+follow_me_v4/test_images
+*.weights
