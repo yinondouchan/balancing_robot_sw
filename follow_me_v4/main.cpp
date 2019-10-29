@@ -8,6 +8,7 @@
 #include "processing/location_estimation.h"
 #include "robot_control/robot_controller.h"
 #include "utils/camera_calibration.h"
+#include "processing/exposure_factor_estimation.h"
 
 #include <unistd.h>
 #include <signal.h>
@@ -38,6 +39,7 @@ void run_follow_me()
 	DetectorTrackerFusion fusion(object_detector, medianflow_tracker);
 	ROILocationEstimation location_estimation;
 	RobotController robot_controller;
+	//ExposureFactorEstimator exposure_factor_estimator;
 
 	object_detector.init();
 
@@ -59,6 +61,10 @@ void run_follow_me()
 
 		if (fusion_success)
 		{
+			//double height_factor, width_factor;
+			//exposure_factor_estimator.estimate_exposure_factors(frame, roi, height_factor, width_factor);
+			//std::cout << height_factor << " " << width_factor << std::endl;
+
 			// estimate target location given current ROI and frame
 			double perp_distance;
 			Point2d centroid;
@@ -81,5 +87,33 @@ void run_follow_me()
 int main()
 {
 	run_follow_me();
+
+//	GstreamerVideoSource video_input;
+//	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);
+//
+//	GstreamerVideoOutput video_output;
+//	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
+//
+//	ExposureFactorEstimator estimator;
+//
+//	// attach signal handler for SIGINT
+//	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
+//
+//	while (!sigint_received)
+//	{
+//		// grab a frame from video input
+//		Mat frame;
+//		video_input.read(frame);
+//
+//		Rect2d roi(300, 100, 200, 200);
+//		double height_factor, width_factor;
+//		estimator.estimate_exposure_factors(frame, roi, height_factor, width_factor);
+//
+//	    std::cout << height_factor << " " << width_factor << std::endl;
+//
+//	    video_output.output_frame(frame);
+//	}
+
+
     return 0;
 }

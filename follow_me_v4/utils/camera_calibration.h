@@ -62,8 +62,6 @@ public:
 
 	// undistort an image given a camera matrix and distortion coefficients
 	static void undistort_image(Mat &image, Mat &undistorted_image, const Matx33d &camera_matrix, const Vec4d &distortion_coefficients, double balance);
-
-//	static void undistort_rect(Rect2d &rect, Rect2d &undistorted_rect)
 private:
 };
 

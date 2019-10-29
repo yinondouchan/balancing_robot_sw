@@ -34,6 +34,12 @@ private:
 	// given detections, find the target index in them. Return -1 if target was not found
 	int find_target_index_in_detections(std::vector<Rect2d> &bboxes, std::vector<std::string> &labels);
 
+	// update the frame ROI
+	void update_frame_roi(Mat &input_frame, Rect2d &fusion_result_roi, bool fusion_success, Rect2d &new_frame_roi);
+
+	// do the fusion and output the ROI
+	bool get_roi_from_fusion(Mat &current_frame, Mat &cropped_frame, Rect2d &out_roi, bool draw_fusion_on_frame=false);
+
 	// detector and tracker
 	DetectorBase &_detector;
 	TrackerBase &_tracker;
@@ -41,8 +47,15 @@ private:
 	// true if tracker was initialized at least once
 	bool tracker_init_once;
 
+	bool fusion_done_once;
+
 	// previous detected/tracked centroid
 	Point2d prev_centroid;
+
+	// region of interest of input frame. Before fusing the detector and the tracker we want to activate the detector and tracker
+	// only around the detected object. This can substantially decrease input size to the detector and the tracker
+	// and may even increase accuracy.
+	Rect2d frame_roi;
 };
 
 
