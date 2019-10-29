@@ -1,0 +1,5 @@
+# ignore DarkNet weights
+*.weights
+
+# ignore h5 weights
+*.h5
