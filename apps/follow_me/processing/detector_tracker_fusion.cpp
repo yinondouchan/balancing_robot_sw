@@ -80,7 +80,7 @@ bool DetectorTrackerFusion::get_roi_from_fusion(Mat &current_frame, Mat &cropped
 			double bbox_iou = calculate_iou_rect2d(object_bboxes[target_index], out_roi);
 
 			// if the IOU is large enough (boxes overlap) we take the tracker output since it is significantly less noisy
-			if (bbox_iou > 0.9)
+			if (bbox_iou > 0.8)
 			{
 				Point2d centroid = get_centroid_from_rect2d(out_roi);
 
