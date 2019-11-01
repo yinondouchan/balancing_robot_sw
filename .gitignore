@@ -1,0 +1,10 @@
+# ignore DarkNet weights
+*.weights
+
+# ignore h5 weights
+*.h5
+*.engine
+.cproject
+.project
+.settings
+./apps/follow_me_v4/test_images
