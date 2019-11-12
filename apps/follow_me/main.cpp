@@ -84,17 +84,48 @@ void run_follow_me()
 	}
 }
 
+void exposure_factor_estimation()
+{
+	//	GstreamerVideoSource video_input;
+	//	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);
+	//
+	//	GstreamerVideoOutput video_output;
+	//	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
+	//
+	//	ExposureFactorEstimator estimator;
+	//
+	//	// attach signal handler for SIGINT
+	//	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
+	//
+	//	while (!sigint_received)
+	//	{
+	//		// grab a frame from video input
+	//		Mat frame;
+	//		video_input.read(frame);
+	//
+	//		Rect2d roi(300, 100, 200, 200);
+	//		double height_factor, width_factor;
+	//		estimator.estimate_exposure_factors(frame, roi, height_factor, width_factor);
+	//
+	//	    std::cout << height_factor << " " << width_factor << std::endl;
+	//
+	//	    video_output.output_frame(frame);
+	//	}
+}
+
 int main()
 {
 	run_follow_me();
-
+//
 //	GstreamerVideoSource video_input;
 //	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);
 //
 //	GstreamerVideoOutput video_output;
-//	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
+//	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, 20);
 //
-//	ExposureFactorEstimator estimator;
+//	ArucoMarkerDetector detector;
+//
+//	detector.init();
 //
 //	// attach signal handler for SIGINT
 //	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
@@ -105,13 +136,13 @@ int main()
 //		Mat frame;
 //		video_input.read(frame);
 //
-//		Rect2d roi(300, 100, 200, 200);
-//		double height_factor, width_factor;
-//		estimator.estimate_exposure_factors(frame, roi, height_factor, width_factor);
+//		std::vector<std::vector<Point2f>> out_polygons;
+//		std::vector<std::string> class_names;
 //
-//	    std::cout << height_factor << " " << width_factor << std::endl;
+//		detector.detect(frame, out_polygons, class_names);
+//		detector.draw_polygons_on_image(frame, out_polygons, class_names);
 //
-//	    video_output.output_frame(frame);
+//		video_output.output_frame(frame);
 //	}
 
 

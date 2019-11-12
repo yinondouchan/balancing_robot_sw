@@ -12,6 +12,9 @@ DetectorTrackerFusion::DetectorTrackerFusion(DetectorBase &detector, TrackerBase
 	fusion_done_once = false;
 	prev_centroid.x = -1;
 	prev_centroid.y = -1;
+
+	complementary_filter.set_time_constants(2.0, 2.0, 2.0, 2.0);
+	rect_lpf.set_time_constants(1.0, 1.0, 1.0, 1.0);
 }
 
 // do the fusion and output the ROI
@@ -51,6 +54,10 @@ bool DetectorTrackerFusion::get_roi_from_fusion(Mat &current_frame, Mat &cropped
 	std::vector<std::string> object_labels;
 	_detector.detect(cropped_frame, object_bboxes, object_labels);
 
+	// find target in detections
+	int target_index = find_target_index_in_detections(object_bboxes, object_labels);
+	bool detector_success = target_index != -1;
+
 	// offset detection bbox to be relative to current frame rather than cropped frame
 	for (int i = 0; i < object_bboxes.size(); i++)
 	{
@@ -58,43 +65,44 @@ bool DetectorTrackerFusion::get_roi_from_fusion(Mat &current_frame, Mat &cropped
 		object_bboxes[i].y += frame_roi.y;
 	}
 
-	// find target in detections
-	int target_index = find_target_index_in_detections(object_bboxes, object_labels);
-	bool found_target = target_index != -1;
-
 	// draw object detections if stated to do so
 	if (draw_fusion_on_frame) _detector.draw_bboxes_on_image(current_frame, object_bboxes, object_labels);
 
-	// true if fusion succeeded
-	bool success;
-
 	// update tracker (if initialized)
-	bool tracker_success = tracker_init_once && _tracker.update(current_frame, out_roi);
-	success = success && tracker_success;
+	Rect2d tracker_roi;
+	bool tracker_success = tracker_init_once && _tracker.update(current_frame, tracker_roi);
 
-	if (found_target)
+	if (detector_success && tracker_success)
 	{
+		// both detection and tracking succeeded
+
 		// calculate IOU between detector ROI and tracker ROI
-		if (tracker_success)
+		double bbox_iou = calculate_iou_rect2d(object_bboxes[target_index], tracker_roi);
+
+		// if the IOU is large enough (detector and tracker boxes overlap)
+		// we take the tracker output since it is significantly less noisy (already assigned to out_roi)
+
+		//Rect2d cf_roi = complementary_filter.update(out_roi, object_bboxes[target_index]);
+
+		// if IOU is not large enough we initialize tracker to detector ROI
+		if (bbox_iou <= 0.8)
 		{
-			double bbox_iou = calculate_iou_rect2d(object_bboxes[target_index], out_roi);
+			// initialize the tracker to this ROI
+			_tracker.init(current_frame, object_bboxes[target_index]);
+			tracker_init_once = true;
 
-			// if the IOU is large enough (boxes overlap) we take the tracker output since it is significantly less noisy
-			if (bbox_iou > 0.8)
-			{
-				Point2d centroid = get_centroid_from_rect2d(out_roi);
-
-				if (draw_fusion_on_frame)
-				{
-					_tracker.draw_roi_on_frame(current_frame, out_roi, Scalar(255, 0, 0));
-					circle(current_frame, centroid, 5, Scalar(255, 0, 0), 3);
-				}
-
-				// save previously located centroid
-				prev_centroid = centroid;
-				return true;
-			}
+			// output detector ROI
+			out_roi = object_bboxes[target_index];
 		}
+		else
+		{
+			// output tracker ROI
+			out_roi = tracker_roi;
+		}
+	}
+	else if (detector_success)
+	{
+		// only detection succeeded
 
 		// initialize the tracker to this ROI
 		_tracker.init(current_frame, object_bboxes[target_index]);
@@ -102,40 +110,136 @@ bool DetectorTrackerFusion::get_roi_from_fusion(Mat &current_frame, Mat &cropped
 
 		// output this ROI
 		out_roi = object_bboxes[target_index];
-
-		Point2d centroid = get_centroid_from_rect2d(out_roi);
-
-		// draw a small circle in the target's centroid if stated to do so
-		if (draw_fusion_on_frame) circle(current_frame, centroid, 5, Scalar(0, 255, 0), 3);
-
-		// save previously located centroid
-		prev_centroid = centroid;
-
-		success = true;
 	}
-	else
+	else if (tracker_success)
 	{
-		// track according to previous frame and ROI (if there exists one)
-		//success = tracker_init_once && _tracker.update(current_frame, out_roi);
+		// only tracking succeeded - output ROI obtained from tracker
+		out_roi = tracker_roi;
+	}
 
+	Point2d centroid = get_centroid_from_rect2d(out_roi);
 
-		// draw tracker ROI and centroid if stated to do so
-		if (success) {
-			Point2d centroid = get_centroid_from_rect2d(out_roi);
-
-			if (draw_fusion_on_frame)
-			{
-				_tracker.draw_roi_on_frame(current_frame, out_roi, Scalar(255, 0, 0));
-				circle(current_frame, centroid, 5, Scalar(255, 0, 0), 3);
-			}
-
-			// save previously located centroid
-			prev_centroid = centroid;
+	if (draw_fusion_on_frame)
+	{
+		if (detector_success)
+		{
+			_detector.draw_bboxes_on_image(current_frame, object_bboxes, object_labels);
+			circle(current_frame, centroid, 5, Scalar(0, 255, 0), 3);
+		}
+		if (tracker_success)
+		{
+			_tracker.draw_roi_on_frame(current_frame, out_roi, Scalar(255, 0, 0));
+			circle(current_frame, centroid, 5, Scalar(255, 0, 0), 3);
+		}
+		if (detector_success || tracker_success)
+		{
+			/*out_roi_filtered.x = out_roi.x;
+			out_roi_filtered.y = out_roi.y;
+			out_roi_filtered.width = 0.9 * out_roi_filtered.width + 0.1 * out_roi.width;
+			out_roi_filtered.height = 0.9 * out_roi_filtered.height + 0.1 * out_roi.height;*/
+			//rectangle(current_frame, out_roi, Scalar( 255, 255, 0 ), 2, 1 );
 		}
 	}
 
-	return success;
+	// update previous centroid
+	prev_centroid = centroid;
+
+	return detector_success || tracker_success;
 }
+
+//// do the fusion and output the ROI
+//bool DetectorTrackerFusion::get_roi_from_fusion(Mat &current_frame, Mat &cropped_frame, Rect2d &out_roi, bool draw_fusion_on_frame)
+//{
+//	// detect objects
+//	std::vector<Rect2d> object_bboxes;
+//	std::vector<std::string> object_labels;
+//	_detector.detect(cropped_frame, object_bboxes, object_labels);
+//
+//	// offset detection bbox to be relative to current frame rather than cropped frame
+//	for (int i = 0; i < object_bboxes.size(); i++)
+//	{
+//		object_bboxes[i].x += frame_roi.x;
+//		object_bboxes[i].y += frame_roi.y;
+//	}
+//
+//	// find target in detections
+//	int target_index = find_target_index_in_detections(object_bboxes, object_labels);
+//	bool found_target = target_index != -1;
+//
+//	// draw object detections if stated to do so
+//	if (draw_fusion_on_frame) _detector.draw_bboxes_on_image(current_frame, object_bboxes, object_labels);
+//
+//	// true if fusion succeeded
+//	bool success;
+//
+//	// update tracker (if initialized)
+//	bool tracker_success = tracker_init_once && _tracker.update(current_frame, out_roi);
+//	success = success && tracker_success;
+//
+//	if (found_target)
+//	{
+//		// calculate IOU between detector ROI and tracker ROI
+//		if (tracker_success)
+//		{
+//			double bbox_iou = calculate_iou_rect2d(object_bboxes[target_index], out_roi);
+//
+//			// if the IOU is large enough (boxes overlap) we take the tracker output since it is significantly less noisy
+//			if (bbox_iou > 0.8)
+//			{
+//				Point2d centroid = get_centroid_from_rect2d(out_roi);
+//
+//				if (draw_fusion_on_frame)
+//				{
+//					_tracker.draw_roi_on_frame(current_frame, out_roi, Scalar(255, 0, 0));
+//					circle(current_frame, centroid, 5, Scalar(255, 0, 0), 3);
+//				}
+//
+//				// save previously located centroid
+//				prev_centroid = centroid;
+//				return true;
+//			}
+//		}
+//
+//		// initialize the tracker to this ROI
+//		_tracker.init(current_frame, object_bboxes[target_index]);
+//		tracker_init_once = true;
+//
+//		// output this ROI
+//		out_roi = object_bboxes[target_index];
+//
+//		Point2d centroid = get_centroid_from_rect2d(out_roi);
+//
+//		// draw a small circle in the target's centroid if stated to do so
+//		if (draw_fusion_on_frame) circle(current_frame, centroid, 5, Scalar(0, 255, 0), 3);
+//
+//		// save previously located centroid
+//		prev_centroid = centroid;
+//
+//		success = true;
+//	}
+//	else
+//	{
+//		// track according to previous frame and ROI (if there exists one)
+//		//success = tracker_init_once && _tracker.update(current_frame, out_roi);
+//
+//
+//		// draw tracker ROI and centroid if stated to do so
+//		if (success) {
+//			Point2d centroid = get_centroid_from_rect2d(out_roi);
+//
+//			if (draw_fusion_on_frame)
+//			{
+//				_tracker.draw_roi_on_frame(current_frame, out_roi, Scalar(255, 0, 0));
+//				circle(current_frame, centroid, 5, Scalar(255, 0, 0), 3);
+//			}
+//
+//			// save previously located centroid
+//			prev_centroid = centroid;
+//		}
+//	}
+//
+//	return success;
+//}
 
 // update the frame ROI
 void DetectorTrackerFusion::update_frame_roi(Mat &input_frame, Rect2d &fusion_result_roi, bool fusion_success, Rect2d &new_frame_roi)

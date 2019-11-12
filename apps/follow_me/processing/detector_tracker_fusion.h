@@ -10,6 +10,7 @@
 
 #include "../detectors/detector_base.h"
 #include "../trackers/tracker_base.h"
+#include "../utils/filters.h"
 
 #include <string>
 
@@ -56,6 +57,10 @@ private:
 	// only around the detected object. This can substantially decrease input size to the detector and the tracker
 	// and may even increase accuracy.
 	Rect2d frame_roi;
+
+	// complementary filter for output ROI
+	RectComplementaryFilter complementary_filter;
+	RectLowPassFilter rect_lpf;
 };
 
 
