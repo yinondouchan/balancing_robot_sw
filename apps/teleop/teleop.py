@@ -1,60 +1,27 @@
 import serial
 
-from getkey import getkey, keys
-from time import sleep
+class TeleopSerialInterface:
+    """
+    Serial interface for teleoperation of the robot
+    """
 
-# velocity and turn rate are both between 0 and 1024 where 512 is the zero point
+    def __init__(self, serial_device_name='/dev/ttyUSB0'):
+        self._serial_device_name = serial_device_name
+        self._serial_connection = None
 
-# centered velocity and turn rate
-velocity = 0
-turn_rate = 0
+    def open(self):
+        self._serial_connection = serial.Serial(self._serial_device_name)
 
-velocity_sensitivity = 20
-turn_rate_sensitivity = 75
+    def set_velocity_and_turn_rate(self, velocity, turn_rate):
+        """ set velocity and turn rate. Both in range of -512 to 512 """
+        command_str = "S%04d  D%04d  " % (velocity + 512, turn_rate + 512)
+        self._serial_connection.write(bytearray(command_str, 'ascii'))
 
-# open serial port
-ser = serial.Serial('/dev/ttyUSB0')
+    def increase_velocity_scale(self):
+        self._serial_connection.write(bytearray("B1  ", 'ascii'))
 
-while True:
-    k = getkey()
+    def decrease_velocity_scale(self):
+        self._serial_connection.write(bytearray("B2  ", 'ascii'))
 
-    # move
-    if k == keys.UP:
-        velocity += velocity_sensitivity
-    if k == keys.DOWN:
-        velocity -= velocity_sensitivity
-    if k == keys.LEFT:
-        turn_rate -= turn_rate_sensitivity
-    if k == keys.RIGHT:
-        turn_rate += turn_rate_sensitivity
-    if k == keys.SPACE:
-        velocity = 0
-        turn_rate = 0
-
-    if k == keys.E:
-        turn_rate = 0
-
-    # increase/decrease velocity scale
-    if k == keys.Q:
-        ser.write(bytearray("B1  ", 'ascii'))
-    if k == keys.A:
-        ser.write(bytearray("B2  ", 'ascii'))
-    
-
-    # get up/fall
-    if k == keys.ENTER:
-        ser.write(bytearray("B3  ", 'ascii'))
-        continue
-
-    # stop teleop (also resets Arduino, thus causing the robot to fall)
-    if k == keys.ESC:
-        break
-
-    # clip velocity and turn rate
-    velocity = max(-512, min(velocity, 512))
-    turn_rate = max(-512, min(turn_rate, 512))
-
-    command_str = "S%04d  D%04d  " % (velocity + 512, turn_rate + 512)
-    ser.write(bytearray(command_str, 'ascii'))
-
-ser.close()
+    def close(self):
+        self._serial_connection.close()
