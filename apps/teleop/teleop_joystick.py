@@ -1,11 +1,13 @@
 import sys, pygame
 from time import sleep
 
-from teleop import TeleopSerialInterface
+from teleop_tcp_client import TeleopTCPClient
 
 pygame.init()
 
-serial_interface = TeleopSerialInterface()
+tcp_client = TeleopTCPClient('127.0.0.1', 5005)
+tcp_client.connect()
+
 
 size = width, height = 640, 480
 black = 0, 0, 0
@@ -41,6 +43,8 @@ def serial_write_vel_and_turn_rate(pos):
     turn_rate = int(turn_rate)
     velocity = int(velocity)
 
+    tcp_client.set_velocity_and_turn_rate(velocity, turn_rate)
+
 
 render(joystick_home_pos)
 
@@ -48,7 +52,9 @@ pygame.display.flip()
 
 while 1:
     for event in pygame.event.get():
-        if event.type == pygame.QUIT: sys.exit()
+        if event.type == pygame.QUIT:
+            tcp_client.close()
+            sys.exit()
 
         if event.type == pygame.MOUSEMOTION:
             left_pressed, _, right_pressed = event.buttons

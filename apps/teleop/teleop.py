@@ -23,5 +23,8 @@ class TeleopSerialInterface:
     def decrease_velocity_scale(self):
         self._serial_connection.write(bytearray("B2  ", 'ascii'))
 
+    def write_to_serial(self, message):
+        self._serial_connection.write(bytearray(message, 'ascii'))
+
     def close(self):
         self._serial_connection.close()
