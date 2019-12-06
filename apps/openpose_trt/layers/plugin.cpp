@@ -2,10 +2,10 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 
-#include "NvInfer.h"
-#include "NvInferPlugin.h"
-#include "NvCaffeParser.h"
-#include "common.h"
+#include <NvInfer.h>
+#include <NvInferPlugin.h>
+#include <NvCaffeParser.h>
+#include "../common.h"
 
 #include "plugin.hpp"
 #include "plugin_kernel.cuh"

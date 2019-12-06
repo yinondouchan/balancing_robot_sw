@@ -42,13 +42,13 @@ public:
 
     virtual void serialize(void* buffer) override;
 
-    const char* getPluginType() const override;
+    const char* getPluginType() const;
     
-    const char* getPluginVersion() const override;
+    const char* getPluginVersion() const;
     
     void destroy();
     
-    IPluginExt* clone() const override;
+    IPluginExt* clone() const;
     
 private:
     size_t type2size(DataType type);

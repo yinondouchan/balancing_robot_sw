@@ -140,6 +140,7 @@ ICudaEngine* caffeToTRTModel()
                   << dims.d[2] << std::endl;
     }
 
+    std::cout << "preparing engine builder" << std::endl;
     // Build the engine
     builder->setMaxBatchSize(gParams.batchSize);
     builder->setMaxWorkspaceSize(size_t(gParams.workspaceSize) << 20);
@@ -159,9 +160,12 @@ ICudaEngine* caffeToTRTModel()
             builder->allowGPUFallback(gParams.allowGPUFallback);
     }
 
+    std::cout << "building engine" << std::endl;
     ICudaEngine* engine = builder->buildCudaEngine(*network);
     if (engine == nullptr)
         std::cout << "could not build engine" << std::endl;
+
+    std::cout << "done building engine" << std::endl;
 
     // we don't need the network any more, and we can destroy the parser
     parserPluginFactory.destroyPlugin();
@@ -262,7 +266,9 @@ ICudaEngine* createEngine()
     if ((!gParams.deployFile.empty()))
     {
         // Create engine (caffe)
+    	std::cout << "creating engine" << std::endl;
         engine = caffeToTRTModel(); // load prototxt & caffemodel files
+        std::cout << "done creating engine" << std::endl;
         if (!engine)
         {
             std::cerr << "Engine could not be created" << std::endl;
@@ -433,7 +439,7 @@ bool parseArgs(int argc, char* argv[])
     return true;
 }
 
-int main(int argc, char** argv)
+/*int main(int argc, char** argv)
 {
     if (!parseArgs(argc, argv))
         return -1;
@@ -455,7 +461,7 @@ int main(int argc, char** argv)
         std::cerr << "Engine could not be created" << std::endl;
         return -1;  
     }
-    nvcaffeparser1::shutdownProtobufLibrary();
+   nvcaffeparser1::shutdownProtobufLibrary();
 
     // run inference with null data to time network performance
     std::cout << "Run inference..." << std::endl;
@@ -469,4 +475,4 @@ int main(int argc, char** argv)
     std::cout << "Done." << std::endl;
 
     return 0;
-}
+}*/
