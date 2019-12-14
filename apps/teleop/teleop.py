@@ -24,7 +24,9 @@ class TeleopSerialInterface:
         self._serial_connection.write(bytearray("B2  ", 'ascii'))
 
     def write_to_serial(self, message):
-        self._serial_connection.write(bytearray(message, 'ascii'))
+        if type(message) is str:
+            message = bytearray(message, 'ascii')
+        self._serial_connection.write(message)
 
     def close(self):
         self._serial_connection.close()

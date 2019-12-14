@@ -31,7 +31,7 @@ class GStreamerConfigs:
 	
     class MJpeg:
         """ mjpeg directed to appsink """
-        def __init__(self, width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, quality=50, flip_method=0):
+        def __init__(self, width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, quality=50, flip_method=0, format_='NV12'):
             self.width = width
             self.height = height
             self.framerate = framerate
@@ -39,13 +39,14 @@ class GStreamerConfigs:
             self.argus_height = argus_height
             self.quality = quality
             self.flip_method = flip_method
+            self.format_ = format_
 			
             self.gstreamer_str = """nvarguscamerasrc ! video/x-raw(memory:NVMM), width=%s, height=%s, format=NV12,
-			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw(memory:NVMM), format=NV12,
-			 						width=%s, height=%s ! nvjpegenc quality=%s ! appsink emit-signals=true sync=true"""	% (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.width, self.height, self.quality)
+			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw(memory:NVMM), format=%s,
+			 						width=%s, height=%s ! nvjpegenc quality=%s ! appsink emit-signals=true sync=true"""	% (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.format_, self.width, self.height, self.quality)
                                     
     class MJpegTCP:
-        """ mjpeg directed to appsink """
+        """ mjpeg directed to tcpserversink """
         def __init__(self, width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, quality=50, flip_method=0):
             self.width = width
             self.height = height
@@ -61,7 +62,7 @@ class GStreamerConfigs:
 				
     class Direct:
         """ no encoding, directly to appsink """
-        def __init__(width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, flip_method=0):
+        def __init__(self, width=1280, height=720, framerate=30, argus_width=3280, argus_height=1848, flip_method=0):
             self.width = width
             self.height = height
             self.framerate = framerate
@@ -70,8 +71,8 @@ class GStreamerConfigs:
             self.flip_method = flip_method
 			
             self.gstreamer_str = """nvarguscamerasrc ! video/x-raw(memory:NVMM), width=%s, height=%s, format=NV12,
-			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw(memory:NVMM), format=NV12,
-			 						width=%s, height=%s ! appsink emit-signals=true sync=true""" 	% (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.width, self.height)
+			 						framerate=%s/1 ! nvvidconv flip_method=%s ! video/x-raw, format=BGRx,
+			 						width=%s, height=%s ! videoconvert ! appsink emit-signals=true sync=true""" 	% (self.argus_width, self.argus_height, self.framerate, self.flip_method, self.width, self.height)
                                     
     vp8_enc_gst_str = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=3280, height=1848, format=NV12, framerate=28/1 ! omxvp8enc bitrate=12000000 ! matroskamux ! appsink emit-signals=true sync=false max-buffers=2 drop=true"
 

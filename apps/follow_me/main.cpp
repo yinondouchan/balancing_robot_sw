@@ -9,6 +9,7 @@
 #include "robot_control/robot_controller.h"
 #include "utils/camera_calibration.h"
 #include "processing/exposure_factor_estimation.h"
+#include "trt_pose.h"
 
 #include <unistd.h>
 #include <signal.h>
@@ -84,38 +85,40 @@ void run_follow_me()
 	}
 }
 
-void exposure_factor_estimation()
+void run_pose_estimation()
 {
-	//	GstreamerVideoSource video_input;
-	//	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);
-	//
-	//	GstreamerVideoOutput video_output;
-	//	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
-	//
-	//	ExposureFactorEstimator estimator;
-	//
-	//	// attach signal handler for SIGINT
-	//	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
-	//
-	//	while (!sigint_received)
-	//	{
-	//		// grab a frame from video input
-	//		Mat frame;
-	//		video_input.read(frame);
-	//
-	//		Rect2d roi(300, 100, 200, 200);
-	//		double height_factor, width_factor;
-	//		estimator.estimate_exposure_factors(frame, roi, height_factor, width_factor);
-	//
-	//	    std::cout << height_factor << " " << width_factor << std::endl;
-	//
-	//	    video_output.output_frame(frame);
-	//	}
+	GstreamerVideoSource video_input;
+	GstreamerVideoOutput video_output;
+
+	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
+	video_output.init(VIDEO_OUT_TCP_SERVER, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FRAMERATE);
+
+	// attach signal handler for SIGINT
+	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
+
+	PoseEstimation pose_estimation;
+	pose_estimation.init("/home/yinon/dev/balancing_robot_sw/apps/pose_estimation/engines/resnet18_baseline_att_224x224_A_epoch_249.engine");
+
+	while (!sigint_received)
+	{
+		// grab a frame from video input
+		Mat frame;
+		video_input.read(frame);
+
+    	Mat inference_input;
+    	resize(frame, inference_input, Size(NET_INPUT_HEIGHT, NET_INPUT_WIDTH));
+
+    	pose_estimation.run_inference(inference_input);
+    	pose_estimation.draw_output_on_frame(frame);
+
+		// output frame
+		video_output.output_frame(frame);
+	}
 }
 
 int main()
 {
-	run_follow_me();
+	run_pose_estimation();
 //
 //	GstreamerVideoSource video_input;
 //	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);
