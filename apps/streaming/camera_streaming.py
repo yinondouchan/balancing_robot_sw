@@ -63,10 +63,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
         cls._page="""\
         <html>
         <head>
-        <title>The all seeing eye of Robot-Aba</title>
+        <title>Yep, it can see</title>
         </head>
         <body>
-        <center><h1>The all seeing eye of Robot-Aba</h1></center>
+        <center><h1>The all seeing eye of my fabulous robot</h1></center>
         <center><img src="stream.mjpg" width="%s" height="%s"></center>
         </video>
         </center>

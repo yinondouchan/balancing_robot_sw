@@ -97,7 +97,7 @@ void run_pose_estimation()
 	if( signal(SIGINT, on_signal) == SIG_ERR ) std::cout << "can't catch SIGINT" << std::endl;
 
 	PoseEstimation pose_estimation;
-	pose_estimation.init("/home/yinon/dev/balancing_robot_sw/apps/pose_estimation/engines/resnet18_baseline_att_224x224_A_epoch_249.engine");
+	pose_estimation.init("/home/yinon/dev/balancing_robot_sw/apps/pose_estimation/engines/resnet18_baseline_att_224x224_A_epoch_249_fp16.engine");
 
 	while (!sigint_received)
 	{
@@ -118,7 +118,7 @@ void run_pose_estimation()
 
 int main()
 {
-	run_pose_estimation();
+	run_follow_me();
 //
 //	GstreamerVideoSource video_input;
 //	video_input.init(VIDEO_WIDTH, VIDEO_HEIGHT, 20);

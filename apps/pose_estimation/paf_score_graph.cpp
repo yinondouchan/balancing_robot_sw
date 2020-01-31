@@ -1,5 +1,7 @@
 #include "paf_score_graph.hpp"
 
+#include <iostream>
+
 #define EPS 1e-6
 
 void paf_score_graph(std::vector<Mat> &score_graph, std::vector<Mat> &paf, std::vector<std::array<int,4>> &topology, std::vector<int> counts, std::vector<std::vector<Point2f>> peaks, int num_integral_samples)
